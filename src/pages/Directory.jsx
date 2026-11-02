@@ -1,3 +1,5 @@
+import SearchSelect from "../components/SearchSelect.jsx";
+import { courseOptions } from "../lib/searchOptions.js";
 import { useState } from "react";
 import {
   Link,
@@ -25,6 +27,7 @@ export default function Directory({ type, params }) {
   const [minRating, setMinRating] = useState(0);
   const [selectedTag, setSelectedTag] = useState("All Tags");
   const [selectedCourse, setSelectedCourse] = useState("All Courses");
+  const [filterReset, setFilterReset] = useState(0);
 
   const hasActiveFilters =
     query !== "" ||
@@ -34,6 +37,7 @@ export default function Directory({ type, params }) {
     selectedCourse !== "All Courses";
 
   function clearAllFilters() {
+    setFilterReset(count => count + 1);
     setQuery("");
     setDepartment("All Departments");
     setMinRating(0);
@@ -159,26 +163,12 @@ export default function Directory({ type, params }) {
           </select>
         </label>
         {!isCourse && (
-          <label className="sort-label">
-            Course taught
-            <select
-              aria-label="Filter by course taught"
-              value={selectedCourse}
-              onChange={(e) => {
-                setSelectedCourse(e.target.value);
-                setVisibleCount(24);
-              }}
-            >
-              <option value="All Courses">All Courses</option>
-              {[...courses]
-                .sort((a, b) => a.code.localeCompare(b.code))
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} · {c.name}
-                  </option>
-                ))}
-            </select>
-          </label>
+          <div className="directory-course-search">
+            <SearchSelect key={filterReset} label="Course taught" options={courseOptions(courses)}
+              value={selectedCourse === "All Courses" ? "" : selectedCourse}
+              placeholder="Search course name or code…"
+              onChange={value => { setSelectedCourse(value || "All Courses"); setVisibleCount(24); }} />
+          </div>
         )}
         {hasActiveFilters && (
           <button

@@ -1,3 +1,5 @@
+import SearchSelect from "../components/SearchSelect.jsx";
+import { courseOptions, professorOptions } from "../lib/searchOptions.js";
 import { useState } from "react";
 import {
   Avatar,
@@ -183,42 +185,14 @@ export default function WriteReview({ params }) {
               <span className="form-number">01</span>Set the scene
             </h3>
             <div className="form-grid">
-              <label>
-                Professor
-                <select
-                  aria-label="Professor"
-                  required
-                  value={professorId}
-                  onChange={(e) => {
-                    setProfessorId(e.target.value);
-                    setCourseId("");
-                  }}
-                >
-                  <option value="">Select a professor</option>
-                  {professors.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Course
-                <select
-                  aria-label="Course"
-                  required
-                  disabled={!professor}
-                  value={courseId}
-                  onChange={(e) => setCourseId(e.target.value)}
-                >
-                  <option value="">Select a course</option>
-                  {availableCourses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.code} · {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SearchSelect label="Professor" required value={professorId}
+                options={professorOptions(professors)} placeholder="Type a professor’s name…"
+                onChange={value => { setProfessorId(value); setCourseId(""); }} />
+              <SearchSelect key={professorId} label="Course" required value={courseId}
+                disabled={!professor} options={courseOptions(availableCourses)}
+                placeholder={professor ? "Type a course name or code…" : "Choose a professor first"}
+                emptyMessage="No matching courses for this professor. Try another name or code."
+                onChange={setCourseId} />
             </div>
             <label>
               Semester

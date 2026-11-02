@@ -13,14 +13,15 @@
     "db:seed": "node server/scripts/seed.js",
     "admin:create": "node server/scripts/create-admin.js",
     "setup:local": "node server/scripts/setup-local.js",
-    "test": "node --test server/tests/unit.test.js server/tests/catalog.test.js server/tests/intelligence.test.js",
+    "test": "node --test server/tests/unit.test.js server/tests/catalog.test.js server/tests/intelligence.test.js src/tests/search-select.test.js",
     "test:integration": "node --test --test-concurrency=1 server/tests/integration.test.js server/tests/queue.integration.test.js",
     "catalog:collect": "node server/scripts/collect-nitw.js",
     "catalog:sync": "node server/scripts/import-nitw.js",
     "dev:all": "node server/scripts/dev-all.js",
     "dev:worker": "node --watch server/workers/intelligence.js",
     "worker": "node server/workers/intelligence.js",
-    "check:connections": "node server/scripts/check-connections.js"
+    "check:connections": "node server/scripts/check-connections.js",
+    "test:ui": "node --test src/tests/search-select.test.js"
   },
   "dependencies": {
     "bullmq": "^5.81.5",
@@ -38,6 +39,8 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.3",
+    "jsdom": "^29.1.1",
     "playwright": "^1.62.1",
     "vite": "^7.1.0"
   }

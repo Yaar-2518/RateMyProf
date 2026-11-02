@@ -3249,3 +3249,18 @@ td {
 .comparison-table th, .comparison-table td { padding: 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .comparison-table thead { background: var(--accent-soft); }
 .comparison-table td .small { display: block; margin-top: 4px; }
+
+/* Searchable course/professor choices: suggestions appear only after typing. */
+.search-select { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.search-select-control { position: relative; display: flex; align-items: center; }
+.search-select-control > svg { position: absolute; left: 12px; color: var(--muted); pointer-events: none; }
+.search-select-control input { width: 100%; padding-left: 38px; padding-right: 40px; }
+.search-select-clear { position: absolute; right: 5px; }
+.search-select-hint { min-height: 15px; font-size: 11px; line-height: 1.5; color: var(--muted); font-weight: 400; }
+.search-select-results { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 5px; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 12px 28px #22233820; max-height: 280px; overflow-y: auto; overscroll-behavior: contain; }
+.search-select-results li { padding: 10px 12px; cursor: pointer; border-radius: 6px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.search-select-results li.active { background: var(--accent-soft); color: var(--accent-dark); }
+.search-select-results small { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); }
+.directory-course-search { flex: 1 1 260px; max-width: 460px; }
+.comparison-selected { display: flex; flex-wrap: wrap; gap: 8px; }
+.comparison-person { display: inline-flex; align-items: center; gap: 5px; padding: 4px 6px 4px 12px; background: var(--accent-soft); color: var(--accent-dark); border-radius: 8px; font-size: 12px; }

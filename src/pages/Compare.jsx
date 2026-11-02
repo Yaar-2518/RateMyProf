@@ -1,3 +1,5 @@
+import SearchSelect from "../components/SearchSelect.jsx";
+import { courseOptions, professorOptions } from "../lib/searchOptions.js";
 import { useEffect, useState } from "react";
 import { useData } from "../context/DataContext.jsx";
 import { request } from "../services/api.js";
@@ -23,13 +25,20 @@ export default function Compare({ params }) {
   return <div className="container page">
     <PageHeading eyebrow="SAME COURSE. DIFFERENT PERSPECTIVES." title="Compare professors" description="Compare published student feedback for the same course. Choose two or three professors." />
     <form className="panel form-stack" onSubmit={compare}>
-      <label>Course<select value={courseId} disabled={busy} required onChange={e => { setCourseId(e.target.value); setSelected([]); setSemester(""); }}>
-        <option value="">Choose a course</option>{courses.map(c => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}
-      </select></label>
+      <SearchSelect label="Course" value={courseId} disabled={busy} required
+        options={courseOptions(courses)} placeholder="Type a course name or code…"
+        onChange={value => { setCourseId(value); setSelected([]); setSemester(""); }} />
       {courseId && <fieldset className="comparison-choices"><legend>Professors teaching this course ({selected.length}/3)</legend>
-        {eligible.length < 2 ? <p className="muted">At least two verified teaching assignments are needed to compare this course.</p> : eligible.map(p => <label className="checkbox-label" key={p.id}>
-          <input type="checkbox" checked={selected.includes(p.id)} disabled={busy || (!selected.includes(p.id) && selected.length >= 3)} onChange={() => setSelected(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id])} />{p.name}
-        </label>)}
+        {eligible.length < 2 ? <p className="muted">At least two verified teaching assignments are needed to compare this course.</p> : <>
+          <div className="comparison-selected">{selected.map(id => <span className="comparison-person" key={id}>
+            {eligible.find(p => p.id === id)?.name}
+            <button type="button" className="icon-button" disabled={busy} aria-label={`Remove ${eligible.find(p => p.id === id)?.name}`} onClick={() => setSelected(prev => prev.filter(value => value !== id))}>×</button>
+          </span>)}</div>
+          <SearchSelect key={courseId} label="Add a professor" clearOnSelect
+            options={professorOptions(eligible.filter(p => !selected.includes(p.id)))}
+            disabled={busy || selected.length >= 3} placeholder={selected.length >= 3 ? "Three professors selected" : "Type a professor’s name…"}
+            onChange={id => { if (id) setSelected(prev => prev.includes(id) || prev.length >= 3 ? prev : [...prev, id]); }} />
+        </>}
       </fieldset>}
       <label>Semester<select value={semester} disabled={busy} onChange={e => setSemester(e.target.value)}><option value="">All semesters</option>{semesters.map(s => <option key={s}>{s}</option>)}</select></label>
       <button className="button primary" disabled={busy || selected.length < 2}>{busy ? "Comparing…" : "Compare selected professors"}</button>
