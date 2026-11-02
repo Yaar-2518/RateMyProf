@@ -1,3 +1,4 @@
+import ProfessorSummary from "../components/ProfessorSummary.jsx";
 import { useState } from "react";
 import {
   Avatar,
@@ -122,6 +123,8 @@ export default function Profile({ id, type, reviewsOnly = false }) {
           Write a review
         </Link>
       </section>
+      {isCourse && <Link className="button secondary" to={`/compare?course=${id}`}>Compare professors for this course</Link>}
+      {!isCourse && <ProfessorSummary professorId={id} reviewCount={itemReviews.length} />}
       <Tabs
         tabs={["Overview", "Reviews", isCourse ? "Professors" : "Courses"]}
         value={tab}

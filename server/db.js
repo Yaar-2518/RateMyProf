@@ -1,7 +1,7 @@
 import { MongoClient } from "mongodb";
 
 export async function connectDb(config) {
-  const client = new MongoClient(config.mongoUri);
+  const client = new MongoClient(config.mongoUri, { serverSelectionTimeoutMS: 10000 });
   await client.connect();
   const db = client.db();
   return { client, db };

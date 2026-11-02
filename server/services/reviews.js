@@ -53,14 +53,14 @@ export function validateReview(body) {
   };
 }
 
-export function createReviewService(db, auth) {
+export function createReviewService(db, auth, jobs = { enqueue: async () => false }) {
   const reviewsCol = db.collection("reviews");
   const professorsCol = db.collection("professors");
   const departmentsCol = db.collection("departments");
   const linksCol = db.collection("professor_courses");
 
   async function list() {
-    const rows = await reviewsCol.find({}).sort({ created_at: -1, _id: 1 }).toArray();
+    const rows = await reviewsCol.find({ status: "published" }).sort({ created_at: -1, _id: 1 }).toArray();
 
     // Build department lookup via professors.
     const profIds = [...new Set(rows.map((r) => r.professor_id))];
@@ -122,6 +122,12 @@ export function createReviewService(db, auth) {
         review_text: review.text,
         tags: review.tags,
         created_at: new Date(),
+        status: "pending",
+        screening_state: "queued",
+        screening_revision: 1,
+        screening_due: new Date(),
+        ai_cleared: false,
+        audit: [],
       });
     } catch (error) {
       if (error.code === 11000)
@@ -132,7 +138,8 @@ export function createReviewService(db, auth) {
         );
       throw error;
     }
-    return { id: reviewId, message: "Your anonymous review has been saved." };
+    await jobs.enqueue("screen", reviewId, 1);
+    return { id: reviewId, status: "pending", message: "Your review was received and is awaiting moderation." };
   }
   return { list, submit };
 }

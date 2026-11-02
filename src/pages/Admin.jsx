@@ -8,6 +8,7 @@ import {
   EmptyState,
 } from "../components/UI.jsx";
 import Icon from "../components/Icon.jsx";
+import ModerationQueue from "../components/ModerationQueue.jsx";
 import DepartmentAdmin from "./DepartmentAdmin.jsx";
 import { useData } from "../context/DataContext.jsx";
 
@@ -117,7 +118,7 @@ export default function Admin({ section = "overview" }) {
     setBusy(true);
     try {
       await deleteReview(reviewId);
-      setFeedback("Review permanently deleted.");
+      setFeedback("Review removed from public pages; moderation history retained.");
     } catch (err) {
       setFeedback(`Error: ${err.message}`);
     } finally {
@@ -129,14 +130,14 @@ export default function Admin({ section = "overview" }) {
       <PageHeading
         eyebrow="BEHIND A BETTER CAMPUS EXPERIENCE"
         title="Administration"
-        description="Manage your persistent catalog and explore the moderation preview."
+        description="Manage the catalog, screen incoming reviews, and resolve reports."
       />
       <div className="notice">
         <Icon name="info" size={18} />
         <span>
           Catalog changes are saved in MongoDB. This workspace requires an
           authenticated administrator account. Reviews are saved in MongoDB.
-          Moderation remains a preview for Module 5.
+          New reviews require screening and human approval before publication.
         </span>
       </div>
       <div className="admin-layout">
@@ -325,6 +326,7 @@ export default function Admin({ section = "overview" }) {
           {section === "departments" && <DepartmentAdmin />}
           {section === "moderation" && (
             <>
+              <ModerationQueue />
               <div className="section-heading">
                 <div>
                   <h2>A thoughtful review queue</h2>

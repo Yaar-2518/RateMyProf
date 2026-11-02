@@ -220,9 +220,7 @@ export function createCatalogService(db) {
       "This record is still referenced by reviews. Remove its dependencies before deleting it.",
       409,
     );
-    if (kind === "professors") {
-      await linksCol.deleteMany({ professorId: identifier });
-    }
+    await linksCol.deleteMany(kind === "professors" ? { professorId: identifier } : { courseId: identifier });
     const result = await col.deleteOne({ _id: identifier });
     requireValue(result.deletedCount > 0, "Catalog record not found.", 404);
   }

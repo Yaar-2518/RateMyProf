@@ -10,17 +10,21 @@ import { importNitwCatalog } from "../scripts/import-nitw.js";
 import { seed } from "../scripts/seed.js";
 import { createApp } from "../app.js";
 import { hashPassword, randomSecret } from "../lib/security.js";
+import { createProcessor, recoverWork } from "../jobs/process.js";
+import { createIntelligenceService } from "../services/intelligence.js";
+import { createCache } from "../lib/redis.js";
 import { createAuthService } from "../services/auth.js";
 
 test("Modules 1–3 against real MongoDB in an isolated test database", async (t) => {
   const dbName = `rmp_test_${process.pid}`;
-  const mongoUri = `mongodb://127.0.0.1:27017/${dbName}`;
+  const mongoUri = process.env.MONGODB_TEST_URI || `mongodb://127.0.0.1:27017/${dbName}`;
   const client = new MongoClient(mongoUri);
   await client.connect();
-  const db = client.db();
+  const db = client.db(dbName);
 
-  let server;
+  let server, closeApp;
   t.after(async () => {
+    if (closeApp) await closeApp();
     if (server) await new Promise((resolve) => server.close(resolve));
     await db.dropDatabase();
     await client.close();
@@ -33,6 +37,8 @@ test("Modules 1–3 against real MongoDB in an isolated test database", async (t
     MONGODB_URI: mongoUri,
     MAIL_MODE: "file",
     STUDENT_EMAIL_DOMAINS: "student.nitw.ac.in",
+    REDIS_URL: "",
+    AI_PROVIDER: "disabled",
   });
 
   await migrate(db);
@@ -79,7 +85,16 @@ test("Modules 1–3 against real MongoDB in an isolated test database", async (t
 
   const delivered = [];
   const sendOtp = async (message) => delivered.push(message);
-  const { app } = await createApp(db, config, { test: true, sendOtp });
+  const queued = [];
+  const jobs = { enqueue: async (...args) => { queued.push(args); return false; }, close: async () => {} };
+  const { app, close } = await createApp(db, config, { test: true, sendOtp, jobs, redis: null });
+  closeApp = close;
+  const aiConfig = { ...config, ai: { ...config.ai, provider: "gemini" } };
+  const fakeAI = {
+    assess: async () => ({ flags: [], recommendation: "no_policy_concern", explanation: "Constructive academic feedback." }),
+    summarize: async rows => ({ text: "Students praise clear lectures. Some describe demanding assignments.", sourceIds: rows.map(r => r.id) }),
+  };
+  const processJob = createProcessor(db, aiConfig, { ai: fakeAI });
   server = await new Promise((resolve) => {
     const result = app.listen(0, "127.0.0.1", () => resolve(result));
   });
@@ -389,6 +404,22 @@ test("Modules 1–3 against real MongoDB in an isolated test database", async (t
       // Second review by same student for same prof+course is rejected (409)
       await student.call("POST", "/reviews", reviewBody, 409);
 
+      // Pending reviews are not public, including when a caller supplies a filter.
+      assert.equal((await guest.call("GET", "/reviews")).data.reviews.length, 0);
+      await guest.call("GET", "/moderation/reviews", undefined, 401);
+      await student.call("GET", "/moderation/reviews", undefined, 403);
+      await processJob({ name: "screen", data: { id: res.data.id, revision: 1 } });
+      const local = await db.collection("reviews").findOne({ _id: res.data.id });
+      assert.equal(local.screening_state, "awaiting_privacy_review");
+      await admin.call("PATCH", `/moderation/reviews/${res.data.id}`, { action: "screen", aiText: "Clear lectures and fair grading.", privacyConfirmed: false }, 400);
+      await admin.call("PATCH", `/moderation/reviews/${res.data.id}`, { action: "screen", aiText: "Email student@example.com", privacyConfirmed: true }, 400);
+      await admin.call("PATCH", `/moderation/reviews/${res.data.id}`, { action: "screen", aiText: "Clear lectures and fair grading.", privacyConfirmed: true });
+      await processJob({ name: "screen", data: { id: res.data.id, revision: 2 } });
+      const assessed = await db.collection("reviews").findOne({ _id: res.data.id });
+      assert.equal(assessed.screening_state, "complete");
+      assert.equal(assessed.status, "pending"); // AI never publishes.
+      await admin.call("PATCH", `/moderation/reviews/${res.data.id}`, { action: "approve", reason: "Constructive review, no private information." });
+      await admin.call("PATCH", `/moderation/reviews/${res.data.id}`, { action: "reject" }, 409);
       // Verify public review listing
       const pubReviews = (await guest.call("GET", `/reviews?professorId=${professorId}`)).data.reviews;
       assert.equal(pubReviews.length, 1);
@@ -400,6 +431,8 @@ test("Modules 1–3 against real MongoDB in an isolated test database", async (t
       assert.equal(serialized.includes(address), false);
       assert.equal(serialized.includes("password_hash"), false);
       assert.equal(serialized.includes("anonymous_seed"), false);
+      assert.equal(serialized.includes("ai_text"), false);
+      assert.equal(serialized.includes("moderatorId"), false);
     },
   );
 
@@ -424,4 +457,77 @@ test("Modules 1–3 against real MongoDB in an isolated test database", async (t
       assert.equal(reviewsAfter.length, reviewsBefore.length);
     },
   );
+  await t.test("recovery finds work even when initial Redis enqueue failed", async () => {
+    await db.collection("reviews").insertOne({ _id: "recover-review", status: "pending", professor_id: professorId, course_id: courseId, context_key: "recover-key", screening_state: "queued", screening_revision: 1, screening_due: new Date(0), review_text: "Clear lectures", ratings: [4,4,4,4,4,4], tags: [], created_at: new Date() });
+    const calls = [];
+    await recoverWork(db, { enqueue: async (...args) => calls.push(args) });
+    assert.ok(calls.some(call => call[0] === "screen" && call[1] === "recover-review"));
+    await processJob({ name: "screen", data: { id: "recover-review", revision: 1 } });
+    await processJob({ name: "screen", data: { id: "recover-review", revision: 1 } });
+    assert.equal((await db.collection("reviews").findOne({ _id: "recover-review" })).screening_state, "awaiting_privacy_review");
+  });
+
+  await t.test("comparisons isolate the selected course, semester and published status", async () => {
+    await db.collection("reviews").insertMany([
+      { _id: "compare-a", professor_id: "test-teacher-one", course_id: "cs1206", context_key: "compare-a", status: "published", semester: "Spring 2025", ratings: [2,3,4,5,1,4], tags: [], review_text: "", created_at: new Date() },
+      { _id: "compare-b", professor_id: "test-teacher-one", course_id: "cs1206", context_key: "compare-b", status: "pending", semester: "Spring 2025", ratings: [1,1,1,1,1,1], tags: [], review_text: "", created_at: new Date() },
+    ]);
+    const result = await guest.call("GET", "/compare?course=cs1206&professors=test-teacher-one,test-teacher-two&semester=Spring%202025");
+    assert.equal(result.data.professors[0].reviewCount, 1);
+    assert.equal(result.data.professors[0].averages[5], 4);
+    assert.equal(result.data.professors[1].averages[0], null);
+    await guest.call("GET", `/compare?course=cs1206&professors=${professorId},test-teacher-two`, undefined, 400);
+    assert.equal((await guest.call("GET", "/compare?course=cs1206&professors=test-teacher-one,test-teacher-two&semester=Autumn%202025")).data.professors[0].reviewCount, 0);
+  });
+
+  await t.test("summary generation waits for privacy-cleared published evidence and removal invalidates cache", async () => {
+    const service = createIntelligenceService(db, aiConfig, jobs, createCache(null));
+    assert.equal((await service.summary("test-teacher-two")).state, "insufficient_data");
+    const docs = Array.from({ length: 5 }, (_, i) => ({ _id: `summary-${i}`, professor_id: "test-teacher-two", course_id: "cs1206", context_key: `summary-key-${i}`, status: "published", semester: "Spring 2025", ratings: [4,4,4,4,4,4], tags: [], review_text: "Clear lectures.", ai_text: "Clear lectures and demanding assignments.", ai_cleared: true, screening: { flags: [], recommendation: "no_policy_concern" }, created_at: new Date() }));
+    await db.collection("reviews").insertMany(docs);
+    assert.equal((await service.summary("test-teacher-two")).state, "processing");
+    const source = await service.summarySource("test-teacher-two");
+    await processJob({ name: "summary", data: { id: "test-teacher-two", revision: source.revision } });
+    assert.equal((await service.summary("test-teacher-two")).state, "ready");
+    await admin.call("DELETE", "/reviews/summary-0");
+    const after = await service.summary("test-teacher-two");
+    assert.equal(after.state, "insufficient_data");
+    assert.equal(after.text, undefined);
+    assert.equal((await db.collection("reviews").findOne({ _id: "summary-0" })).status, "removed");
+  });
+
+  await t.test("persistent reports are admin-only and concurrent duplicates are prevented", async () => {
+    const publicReview = await db.collection("reviews").findOne({ status: "published" });
+    const responses = await Promise.all([
+      student.call("POST", `/reviews/${publicReview._id}/report`, { reason: "Other", details: "Please inspect." }, null),
+      student.call("POST", `/reviews/${publicReview._id}/report`, { reason: "Other", details: "Please inspect." }, null),
+    ]);
+    assert.deepEqual(responses.map(r => r.status).sort(), [201, 409]);
+    const first = responses.find(r => r.status === 201);
+    await guest.call("GET", "/reports", undefined, 401);
+    await student.call("GET", "/reports", undefined, 403);
+    await admin.call("PATCH", `/reports/${first.data.id}`, { action: "remove" });
+    assert.equal((await db.collection("reviews").findOne({ _id: publicReview._id })).status, "removed");
+    assert.ok((await guest.call("GET", "/reviews")).data.reviews.every(r => r.id !== publicReview._id));
+  });
+
+  await t.test("screening retries are bounded, stale revisions are ignored, and PII cannot be published", async () => {
+    const row = { _id: "retry-review", status: "pending", professor_id: professorId, course_id: courseId, context_key: "retry-key", screening_state: "queued", screening_revision: 1, screening_due: new Date(0), ai_cleared: true, ai_text: "Clear lectures.", review_text: "Email someone@example.com", ratings: [4,4,4,4,4,4], tags: [], created_at: new Date() };
+    await db.collection("reviews").insertOne(row);
+    let calls = 0;
+    const failed = createProcessor(db, aiConfig, { ai: { assess: async () => { calls++; const error = new Error("temporary"); error.retryable = true; throw error; } } });
+    await failed({ name: "screen", data: { id: row._id, revision: 99 } });
+    assert.equal(calls, 0);
+    for (let i = 0; i < 3; i++) {
+      await db.collection("reviews").updateOne({ _id: row._id }, { $set: { screening_due: new Date(0) } });
+      await failed({ name: "screen", data: { id: row._id, revision: 1 } });
+    }
+    const saved = await db.collection("reviews").findOne({ _id: row._id });
+    assert.equal(saved.screening_state, "failed");
+    assert.equal(saved.status, "pending");
+    assert.equal(calls, 3);
+    await admin.call("PATCH", `/moderation/reviews/${row._id}`, { action: "approve" }, 400);
+    await admin.call("PATCH", `/moderation/reviews/${row._id}`, { action: "reject", reason: "Private contact information." });
+  });
+
 });

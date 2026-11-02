@@ -3,6 +3,7 @@ import { AuthProvider } from "./context/AuthContext.jsx";
 import { AccessGate, CatalogGate } from "./components/AccessGate.jsx";
 import { DataProvider } from "./context/DataContext.jsx";
 import Layout from "./components/Layout.jsx";
+import Compare from "./pages/Compare.jsx";
 import Home from "./pages/Home.jsx";
 import Directory from "./pages/Directory.jsx";
 import Profile from "./pages/Profile.jsx";
@@ -41,6 +42,7 @@ export default function App() {
       "forgot-password": "Password recovery",
       "reset-password": "Reset password",
       insights: "Campus insights",
+      compare: "Compare professors",
       about: "Our story",
       privacy: "Privacy",
       guidelines: "Community guidelines",
@@ -74,6 +76,7 @@ export default function App() {
     )
   )
     page = <Auth mode={segments[0]} params={params} />;
+  else if (path === "/compare") page = <Compare params={params} />;
   else if (path === "/insights") page = <Insights />;
   else if (["/about", "/privacy", "/guidelines"].includes(path))
     page = <Information type={segments[0]} />;
@@ -101,6 +104,7 @@ export default function App() {
     "courses",
     "admin",
     "write-review",
+    "compare",
   ].includes(segments[0]);
   if (catalogRequired) page = <CatalogGate>{page}</CatalogGate>;
   // Route keys reset page-local form/filter state when visiting another page.

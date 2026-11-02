@@ -1,11 +1,14 @@
 # RateMyProf — NIT Warangal
 
-A React + plain CSS frontend with a Node.js/Express/MongoDB backend. **Modules 1–3 are implemented with MongoDB and Google OAuth.**
+A React + plain CSS frontend with a Node.js/Express/MongoDB backend. **Includes human-approved reviews, Gemini-assisted moderation/summaries, Redis jobs/caching, and same-course professor comparisons.**
 
 - Catalog: official departments/faculty and current B.Tech courses, with source links and verified teaching assignments.
 - Accounts: configured NITW email domain (`@student.nitw.ac.in`), password login/logout, Google OAuth login, MongoDB sessions, CSRF protection, password recovery and OTP verification.
 - Reviews: six ratings, optional text, up to five predefined tags, semester, and confirmation. Reviews persist anonymously; one submission per account × professor × course is enforced.
-- Module 4's advanced discovery/aggregates, Module 5's moderation, and Module 6's analytics remain future work. Helpful votes/reports are clearly marked frontend previews. Insights is blank and comparison is removed.
+- Review intelligence: pending submissions, local privacy checks, moderator-cleared Gemini assessment, human publication decisions, and evidence-based profile summaries.
+- Discovery: same-course professor comparison, published-review Insights, and Redis-backed jobs/cache. Helpful votes remain local UI state.
+
+See [Local review intelligence setup](docs/LOCAL_REVIEW_INTELLIGENCE.md) for the current workflow and privacy requirements.
 
 ## Run locally
 
@@ -18,10 +21,20 @@ npm run setup:local
 
 Setup creates a private `.env`, initializes MongoDB collections and indexes, imports the checked-in official NITW catalog, and creates a local website administrator. It preserves an existing `.env` and existing account data. Initial admin credentials are in `.local/admin-account.txt`.
 
-Run the following in two separate terminals:
+For the complete local setup (MongoDB and Redis executables must be installed):
+
+```sh
+npm run dev:all
+```
+
+Alternatively, start MongoDB/Redis yourself and run the API, worker, and frontend separately:
 
 ```sh
 npm run dev:server
+```
+
+```sh
+npm run dev:worker
 ```
 
 ```sh
@@ -61,7 +74,7 @@ The collector visits NITW's department rosters (including published adjunct tabs
 npm run catalog:sync
 ```
 
-Sync privately backs up catalog tables, applies migrations, and imports the snapshot. It preserves account/review data, stable IDs, and manually created records. Official records are refreshed; existing manual teaching links are retained. `npm run db:seed` instead inserts missing initial records without overwriting edits. No command seeds reviews.
+Sync applies migrations and imports the snapshot. The current MongoDB importer is not transactional and does not create a backup; back up existing data before a deliberate refresh. It preserves account/review data, stable IDs, and manually created records. Official records are refreshed; existing manual teaching links are retained. `npm run db:seed` instead inserts missing initial records without overwriting edits. No command seeds reviews.
 
 Optional collector settings: CHROMIUM_PATH, PDFTOTEXT_PATH. `node server/scripts/collect-nitw.js --cached` reuses already downloaded PDFs/profile pages for debugging; use a normal collection run to refresh those sources. Raw pages/PDFs/backups remain ignored under `.local/nitw/`.
 
@@ -94,10 +107,12 @@ npm run build
 
 Unit tests cover helpers, review validation, and extraction/snapshot integrity. Integration tests use an isolated temporary MongoDB database, covering permissions, CRUD, sessions/recovery, review persistence/privacy, duplicate races, and repeatable catalog import.
 
+- [Current local setup and review intelligence](docs/LOCAL_REVIEW_INTELLIGENCE.md)
 - [30-minute backend guide](docs/BACKEND_30_MIN_GUIDE.md)
+- [Architecture and code masterclass](docs/ARCHITECTURE_AND_CODE_MASTERCLASS.md) — detailed source-based architecture, syntax, request flows, and study exercises
 - [Project file map](docs/PROJECT_CODE_GUIDE.md)
 - [Backend request walkthrough](docs/BACKEND_CODE_GUIDE.md)
 - [Six-module status](docs/MODULE_GUIDE.md)
 - [Official catalog audit](docs/NITW_CATALOG.md)
 
-`.env`, `.local/`, node_modules, dist, and credentials are excluded from Git. Share `.env.example`, never your actual secrets. A production deployment additionally needs its public listening address, HTTPS/origin/cookie configuration, encrypted remote MySQL connection, and real mail delivery configured; this change does not deploy hosting.
+`.env`, `.local/`, node_modules, dist, and credentials are excluded from Git. Share `.env.example`, never your actual secrets. A production deployment additionally needs its public listening address, HTTPS/origin/cookie configuration, authenticated remote MongoDB/Redis connections, and real mail delivery configured; this change does not deploy hosting.

@@ -6,7 +6,8 @@ export const projectRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
-dotenv.config({ path: path.join(projectRoot, ".env"), quiet: true });
+// Deployment environment wins; .env.local overrides .env for local development.
+dotenv.config({ path: [path.join(projectRoot, ".env.local"), path.join(projectRoot, ".env")], quiet: true });
 
 export function readConfig(env = process.env) {
   const production =
@@ -32,6 +33,8 @@ export function readConfig(env = process.env) {
   const origin = new URL(env.APP_ORIGIN || "http://localhost:5173").origin;
   if (production && !origin.startsWith("https://"))
     throw new Error("Production APP_ORIGIN must use HTTPS.");
+  if (!["disabled", "gemini"].includes(env.AI_PROVIDER || "disabled")) throw new Error("AI_PROVIDER must be gemini or disabled.");
+  if (env.AI_PROVIDER === "gemini" && !env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required when AI_PROVIDER=gemini.");
   const domains = (env.STUDENT_EMAIL_DOMAINS || "student.nitw.ac.in")
     .split(",")
     .map((d) => d.trim().toLowerCase())
@@ -44,6 +47,21 @@ export function readConfig(env = process.env) {
   return {
     production,
     port: Number(env.PORT || 3000),
+    host: env.HOST || (production ? "0.0.0.0" : "127.0.0.1"),
+    redisUrl: (() => {
+      const value = env.REDIS_URL || "";
+      if (value && !/^rediss?:\/\//.test(value)) throw new Error("REDIS_URL must be a Redis TCP/TLS connection URL.");
+      if (production && value && !value.startsWith("rediss://")) throw new Error("Production Redis requires a TLS rediss:// URL.");
+      return value;
+    })(),
+    ai: {
+      provider: env.AI_PROVIDER || "disabled",
+      apiKey: env.GEMINI_API_KEY || "",
+      model: env.GEMINI_MODEL || "gemini-3.1-flash-lite",
+      timeoutMs: 30000,
+      minimumReviews: 5,
+      dailyLimit: 50,
+    },
     origin,
     domains,
     sessionSecret: secret("SESSION_SECRET"),

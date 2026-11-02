@@ -9,8 +9,8 @@ try {
   client = mongoClient;
   // Verify connectivity by checking a known collection.
   await db.command({ ping: 1 });
-  const { app, store } = await createApp(db, config);
-  const server = app.listen(config.port, "127.0.0.1", () =>
+  const { app, store, close } = await createApp(db, config);
+  const server = app.listen(config.port, config.host, () =>
     console.log(
       `RateMyProf API: http://localhost:${config.port} · mail: ${config.mail.mode}`,
     ),
@@ -24,6 +24,7 @@ try {
     process.once(signal, () => {
       clearInterval(cleanup);
       server.close(async () => {
+        await close();
         await client.close();
         process.exit(0);
       });

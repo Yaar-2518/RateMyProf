@@ -130,14 +130,14 @@ export default function WriteReview({ params }) {
           <div className="eyebrow">A PERSPECTIVE WORTH SHARING</div>
           <h1>Thanks for passing it on.</h1>
           <p>
-            Your anonymous review has been saved. Your account details are not
-            displayed with your review.
+            Your anonymous review was received and is awaiting moderation. It will
+            appear publicly after approval. Your account details are not displayed.
           </p>
           <Link
             className="button primary"
             to={`/professors/${professorId}/reviews`}
           >
-            See your review <Icon name="arrow" size={18} />
+            Visit professor reviews <Icon name="arrow" size={18} />
           </Link>
           <Link className="text-link" to="/professors">
             Back to professors

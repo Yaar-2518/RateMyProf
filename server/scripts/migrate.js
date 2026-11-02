@@ -17,10 +17,17 @@ export async function migrate(db) {
     "sessions",
     "reviews",
     "reports",
+    "ai_summaries",
+    "ai_usage",
   ]) {
     if (!existing.has(name)) await db.createCollection(name);
   }
 
+  // Preserve visibility of legacy reviews; all new submissions explicitly use pending.
+  await db.collection("reviews").updateMany({ status: { $exists: false } }, { $set: { status: "published", ai_cleared: false, screening_state: "legacy" } });
+  await db.collection("reviews").createIndex({ status: 1, screening_due: 1 });
+  await db.collection("ai_summaries").createIndex({ state: 1, due: 1 });
+  await db.collection("reports").createIndex({ reviewId: 1, reportedBy: 1 }, { unique: true });
   // Create indexes that mirror the old MySQL schema constraints.
   await db.collection("departments").createIndex({ name: 1 }, { unique: true });
   await db.collection("departments").createIndex({ code: 1 }, { unique: true });

@@ -10,7 +10,8 @@ import { createAdmin } from "./create-admin.js";
 
 let client;
 try {
-  const envPath = path.join(projectRoot, ".env");
+  const localPath = path.join(projectRoot, ".env.local");
+  const envPath = await fs.access(localPath).then(() => localPath, () => path.join(projectRoot, ".env"));
   let envExists = true;
   try {
     await fs.access(envPath);
@@ -38,7 +39,8 @@ try {
   }
 
   const parsed = dotenv.parse(await fs.readFile(envPath));
-  const config = readConfig({ ...process.env, ...parsed });
+  const environment = { ...parsed, ...process.env };
+  const config = readConfig(environment);
 
   const connection = await connectDb(config);
   client = connection.client;
@@ -46,7 +48,7 @@ try {
 
   await migrate(db);
   await seed(db);
-  await createAdmin(db, parsed.ADMIN_EMAIL, parsed.ADMIN_PASSWORD);
+  await createAdmin(db, environment.ADMIN_EMAIL, environment.ADMIN_PASSWORD);
 
   console.log(
     "Setup complete. Run npm run dev:server and npm run dev in separate terminals.",

@@ -1,4 +1,8 @@
 import express from "express";
+import { RedisStore } from "rate-limit-redis";
+import { createRedis, createCache } from "./lib/redis.js";
+import { createJobs } from "./jobs/queue.js";
+import { intelligenceRoutes } from "./routes/intelligence.js";
 import session from "express-session";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
@@ -16,6 +20,12 @@ import { catalogRoutes } from "./routes/catalog.js";
 export async function createApp(db, config, options = {}) {
   const app = express(),
     store = new MongoSessionStore(db);
+  const redis = options.redis === undefined ? createRedis(config) : options.redis;
+  if (redis && redis.status === "wait") await redis.connect().catch(() => {});
+  const jobs = options.jobs || createJobs(config);
+  const limiterStore = (prefix) => redis && !options.test ? new RedisStore({
+    sendCommand: (...args) => redis.call(...args), prefix: `rmp:limit:${prefix}:`,
+  }) : undefined;
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxy);
   app.use(
@@ -39,6 +49,7 @@ export async function createApp(db, config, options = {}) {
   app.use(
     "/api",
     rateLimit({
+      store: limiterStore("api"),
       windowMs: 60000,
       limit: options.test ? 10000 : 300,
       standardHeaders: "draft-8",
@@ -98,6 +109,7 @@ export async function createApp(db, config, options = {}) {
     return authLimiter(req, res, next);
   });
   const authLimiter = rateLimit({
+    store: limiterStore("auth"),
     windowMs: 15 * 60000,
     limit: options.test ? 1000 : 30,
     standardHeaders: "draft-8",
@@ -111,7 +123,8 @@ export async function createApp(db, config, options = {}) {
   });
   app.use("/api/auth", authRoutes(auth, config));
   app.use("/api", catalogRoutes(db));
-  app.use("/api", reviewRoutes(db, auth, options));
+  app.use("/api", intelligenceRoutes(db, config, jobs, createCache(redis)));
+  app.use("/api", reviewRoutes(db, auth, { ...options, jobs }));
   app.use("/api", (req, res) =>
     res.status(404).json({
       error: { message: "API endpoint not found.", code: "NOT_FOUND" },
@@ -120,5 +133,5 @@ export async function createApp(db, config, options = {}) {
   if (config.production)
     app.use(express.static(path.join(projectRoot, "dist")));
   app.use(errorHandler);
-  return { app, store };
+  return { app, store, close: async () => { await jobs.close?.(); redis?.disconnect(); } };
 }

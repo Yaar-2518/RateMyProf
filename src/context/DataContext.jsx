@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { useAuth } from "./AuthContext.jsx";
 import { request } from "../services/api.js";
 const DataContext = createContext(null);
 function withReviewSummary(records, reviews, field) {
@@ -15,6 +16,7 @@ function withReviewSummary(records, reviews, field) {
   });
 }
 export function DataProvider({ children }) {
+  const { user } = useAuth();
   const [professors, setProfessors] = useState([]),
     [courses, setCourses] = useState([]),
     [departmentRecords, setDepartmentRecords] = useState([]);
@@ -42,6 +44,8 @@ export function DataProvider({ children }) {
       setLoading(false);
     }
   }
+
+  useEffect(() => { setReports([]); }, [user?.id]);
 
   async function refreshReports() {
     try {

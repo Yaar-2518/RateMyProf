@@ -3049,3 +3049,21 @@ td {
 }
 
 
+
+/* Review intelligence and course-specific comparisons */
+.ai-summary { margin: 24px 0; }
+.submission-queue { margin-bottom: 48px; }
+.moderation-submission { margin: 20px 0; display: grid; gap: 16px; }
+.moderation-submission blockquote { margin: 0; padding: 16px; border-left: 3px solid var(--accent); background: var(--accent-soft); white-space: pre-wrap; overflow-wrap: anywhere; }
+.moderation-submission details { border-top: 1px solid var(--line); padding-top: 12px; }
+.moderation-submission summary { cursor: pointer; font-weight: 600; }
+.moderation-submission details > * + * { margin-top: 12px; }
+.screening-assessment { background: #fafaf8; border-radius: var(--radius); padding: 16px; }
+.comparison-choices { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 12px; }
+.comparison-results { margin-top: 36px; }
+.comparison-results th, .comparison-results td { min-width: 140px; text-align: left; }
+@media (max-width: 600px) { .moderation-submission .form-actions { flex-wrap: wrap; } }
+.comparison-table { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 13px; }
+.comparison-table th, .comparison-table td { padding: 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.comparison-table thead { background: var(--accent-soft); }
+.comparison-table td .small { display: block; margin-top: 4px; }

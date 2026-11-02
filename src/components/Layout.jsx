@@ -25,6 +25,7 @@ export default function Layout({ route, children }) {
     ["/", "Home"],
     ["/professors", "Professors"],
     ["/courses", "Courses"],
+    ["/compare", "Compare"],
     ["/insights", "Insights"],
     ["/about", "About"],
   ];

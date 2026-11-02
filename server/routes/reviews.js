@@ -8,7 +8,7 @@ import { id, text } from "../lib/validation.js";
 
 export function reviewRoutes(db, auth, options = {}) {
   const router = Router(),
-    reviews = createReviewService(db, auth);
+    reviews = createReviewService(db, auth, options.jobs);
   const reportsCol = db.collection("reports");
   const reviewsCol = db.collection("reviews");
 
@@ -40,7 +40,7 @@ export function reviewRoutes(db, auth, options = {}) {
   // POST /api/reviews/:id/report — any logged-in student can report a review
   router.post("/reviews/:id/report", requireAccount, async (req, res) => {
     const reviewId = id(req.params.id);
-    const review = await reviewsCol.findOne({ _id: reviewId });
+    const review = await reviewsCol.findOne({ _id: reviewId, status: "published" });
     requireValue(review, "Review not found.", 404);
 
     const validReasons = [
@@ -120,14 +120,14 @@ export function reviewRoutes(db, auth, options = {}) {
     requireValue(report.status === "Pending", "Report is already resolved.", 409);
 
     const newStatus = action === "remove" ? "Removed" : "Dismissed";
-    await reportsCol.updateOne(
-      { _id: reportId },
+    const resolved = await reportsCol.updateOne(
+      { _id: reportId, status: "Pending" },
       { $set: { status: newStatus, resolved_at: new Date() } },
     );
 
+    requireValue(resolved.modifiedCount > 0, "Report is already resolved.", 409);
     if (action === "remove") {
-      // Hard-delete the review so it disappears from all profiles
-      await reviewsCol.deleteOne({ _id: report.reviewId });
+      await reviewsCol.updateOne({ _id: report.reviewId }, { $set: { status: "removed", ai_cleared: false }, $push: { audit: { action: "remove", moderatorId: req.user.id, at: new Date() } } });
       // Mark all reports for that review as Removed
       await reportsCol.updateMany(
         { reviewId: report.reviewId, status: "Pending" },
@@ -141,8 +141,8 @@ export function reviewRoutes(db, auth, options = {}) {
   // DELETE /api/reviews/:id — admin only; direct removal without a report
   router.delete("/reviews/:id", requireAdmin, async (req, res) => {
     const reviewId = id(req.params.id);
-    const result = await reviewsCol.deleteOne({ _id: reviewId });
-    requireValue(result.deletedCount > 0, "Review not found.", 404);
+    const result = await reviewsCol.updateOne({ _id: reviewId, status: { $ne: "removed" } }, { $set: { status: "removed", ai_cleared: false }, $push: { audit: { action: "remove", moderatorId: req.user.id, at: new Date() } } });
+    requireValue(result.modifiedCount > 0, "Review not found.", 404);
     // Clean up associated reports
     await reportsCol.updateMany(
       { reviewId, status: "Pending" },
