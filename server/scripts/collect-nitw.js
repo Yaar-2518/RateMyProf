@@ -79,7 +79,7 @@ try {
   try {
     const previous = JSON.parse(
       await fs.readFile(
-        path.join(projectRoot, "docs/NITW_IMPORT_REPORT.json"),
+        path.join(projectRoot, "shared/nitwImportReport.json"),
         "utf8",
       ),
     );
@@ -500,7 +500,7 @@ try {
     JSON.stringify(catalog, null, 2) + "\n",
   );
   await fs.writeFile(
-    path.join(projectRoot, "docs/NITW_IMPORT_REPORT.json"),
+    path.join(projectRoot, "shared/nitwImportReport.json"),
     JSON.stringify(report, null, 2) + "\n",
   );
   console.log(JSON.stringify(report.totals));

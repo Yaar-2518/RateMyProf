@@ -8,7 +8,7 @@ A React + plain CSS frontend with a Node.js/Express/MongoDB backend. **Includes 
 - Review intelligence: pending submissions, local privacy checks, moderator-cleared Gemini assessment, human publication decisions, and evidence-based profile summaries.
 - Discovery: same-course professor comparison, published-review Insights, and Redis-backed jobs/cache. Helpful/unhelpful votes persist, and signed-in students can track submissions in My Profile.
 
-See [Local review intelligence setup](docs/LOCAL_REVIEW_INTELLIGENCE.md) for the current workflow and privacy requirements.
+New submissions stay pending until a moderator approves them. Gemini receives only moderator-confirmed de-identified text; summaries require five eligible published written reviews.
 
 ## Run locally
 
@@ -57,7 +57,7 @@ To enable Google Sign-In:
 
 ## Refresh the official catalog
 
-The checked-in `shared/nitwCatalog.json` snapshot allows setup without scraping the website each time. See [NITW_CATALOG.md](docs/NITW_CATALOG.md) for sources, verification, and known source discrepancies.
+The checked-in `shared/nitwCatalog.json` snapshot allows setup without scraping the website each time. The machine-readable source verification and coverage report is in `shared/nitwImportReport.json`.
 
 To collect a fresh snapshot, install the development browser and Poppler's `pdftotext` command:
 
@@ -97,7 +97,7 @@ Optional collector settings: CHROMIUM_PATH, PDFTOTEXT_PATH. `node server/scripts
 
 All mutations require the session's CSRF token. Public review responses never include email, user ID, password hash, private seed, or duplicate-enforcement key. A catalog record with saved reviews cannot be deleted without removing referencing reviews.
 
-## Tests and learning
+## Tests
 
 ```sh
 npm test
@@ -107,12 +107,5 @@ npm run build
 
 Unit tests cover helpers, review validation, and extraction/snapshot integrity. Integration tests use an isolated temporary MongoDB database, covering permissions, CRUD, sessions/recovery, review persistence/privacy, duplicate races, and repeatable catalog import.
 
-- [Current local setup and review intelligence](docs/LOCAL_REVIEW_INTELLIGENCE.md)
-- [30-minute backend guide](docs/BACKEND_30_MIN_GUIDE.md)
-- [Architecture and code masterclass](docs/ARCHITECTURE_AND_CODE_MASTERCLASS.md) — detailed source-based architecture, syntax, request flows, and study exercises
-- [Project file map](docs/PROJECT_CODE_GUIDE.md)
-- [Backend request walkthrough](docs/BACKEND_CODE_GUIDE.md)
-- [Six-module status](docs/MODULE_GUIDE.md)
-- [Official catalog audit](docs/NITW_CATALOG.md)
 
 `.env`, `.local/`, node_modules, dist, and credentials are excluded from Git. Share `.env.example`, never your actual secrets. A production deployment additionally needs its public listening address, HTTPS/origin/cookie configuration, authenticated remote MongoDB/Redis connections, and real mail delivery configured; this change does not deploy hosting.

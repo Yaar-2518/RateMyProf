@@ -27,7 +27,7 @@ test("official snapshot has unique identities, valid references and complete sch
   );
   const report = JSON.parse(
     await fs.readFile(
-      new URL("../../docs/NITW_IMPORT_REPORT.json", import.meta.url),
+      new URL("../../shared/nitwImportReport.json", import.meta.url),
     ),
   );
   assert.equal(catalog.departments.length, report.departments.length);

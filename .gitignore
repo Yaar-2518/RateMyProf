@@ -7,3 +7,6 @@ dist/
 !.env.example
 .local/
 coverage/
+
+# Personal learning guides stay local.
+docs/
