@@ -6,7 +6,7 @@ A React + plain CSS frontend with a Node.js/Express/MongoDB backend. **Includes 
 - Accounts: configured NITW email domain (`@student.nitw.ac.in`), password login/logout, Google OAuth login, MongoDB sessions, CSRF protection, password recovery and OTP verification.
 - Reviews: six ratings, optional text, up to five predefined tags, semester, and confirmation. Reviews persist anonymously; one submission per account × professor × course is enforced.
 - Review intelligence: pending submissions, local privacy checks, moderator-cleared Gemini assessment, human publication decisions, and evidence-based profile summaries.
-- Discovery: same-course professor comparison, published-review Insights, and Redis-backed jobs/cache. Helpful votes remain local UI state.
+- Discovery: same-course professor comparison, published-review Insights, and Redis-backed jobs/cache. Helpful/unhelpful votes persist, and signed-in students can track submissions in My Profile.
 
 See [Local review intelligence setup](docs/LOCAL_REVIEW_INTELLIGENCE.md) for the current workflow and privacy requirements.
 

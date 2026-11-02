@@ -406,6 +406,8 @@ test("Modules 1–3 against real MongoDB in an isolated test database", async (t
 
       // Pending reviews are not public, including when a caller supplies a filter.
       assert.equal((await guest.call("GET", "/reviews")).data.reviews.length, 0);
+      await admin.call("PATCH", `/reviews/${res.data.id}/status`, { status: "approved" }, 409);
+      await student.call("PATCH", `/reviews/${res.data.id}/status`, { status: "approved" }, 403);
       await guest.call("GET", "/moderation/reviews", undefined, 401);
       await student.call("GET", "/moderation/reviews", undefined, 403);
       await processJob({ name: "screen", data: { id: res.data.id, revision: 1 } });
@@ -528,6 +530,41 @@ test("Modules 1–3 against real MongoDB in an isolated test database", async (t
     assert.equal(calls, 3);
     await admin.call("PATCH", `/moderation/reviews/${row._id}`, { action: "approve" }, 400);
     await admin.call("PATCH", `/moderation/reviews/${row._id}`, { action: "reject", reason: "Private contact information." });
+  });
+
+  await t.test("merged approval API, private profile, and voting respect publication boundaries", async () => {
+    const owner = await db.collection("users").findOne({ email: address });
+    await db.collection("reviews").insertOne({ _id: "merged-review", context_key: "merged-review-key", user_id: owner._id, professor_id: professorId, course_id: courseId, status: "pending", screening_state: "awaiting_privacy_review", screening_revision: 1, audit: [], semester: "Spring 2025", ratings: [4,4,4,4,4,4], review_text: "Clear explanations.", tags: [], created_at: new Date(), grade: "A", attendance: "Mandatory" });
+    await guest.call("GET", "/my-reviews", undefined, 401);
+    const mine = (await student.call("GET", "/my-reviews")).data.reviews;
+    assert.ok(mine.some(r => r.id === "merged-review" && r.status === "pending" && r.grade === "A"));
+    assert.equal((await admin.call("GET", "/my-reviews")).data.reviews.length, 0);
+    await student.call("POST", "/reviews/merged-review/vote", { value: 1 }, 404);
+    await admin.call("PATCH", "/reviews/merged-review/status", { status: "approved" });
+    assert.equal((await db.collection("reviews").findOne({ _id: "merged-review" })).status, "published");
+    assert.equal((await student.call("GET", "/my-reviews")).data.reviews.find(r => r.id === "merged-review").status, "approved");
+    await guest.call("POST", "/reviews/merged-review/vote", { value: 1 }, 401);
+    await student.call("POST", "/reviews/merged-review/vote", { value: 1 });
+    let publicReview = (await guest.call("GET", "/reviews")).data.reviews.find(r => r.id === "merged-review");
+    assert.equal(publicReview.upvotes, 1);
+    assert.equal(publicReview.user_id, undefined);
+    await student.call("POST", "/reviews/merged-review/vote", { value: -1 });
+    publicReview = (await guest.call("GET", "/reviews")).data.reviews.find(r => r.id === "merged-review");
+    assert.equal(publicReview.upvotes, 0);
+    assert.equal(publicReview.downvotes, 1);
+    await student.call("POST", "/reviews/merged-review/vote", { value: -1 });
+    assert.equal(Object.keys((await student.call("GET", "/votes")).data.votes).length, 0);
+  });
+
+  await t.test("migration normalizes earlier approved reviews and recovers pending submissions", async () => {
+    await db.collection("reviews").insertMany([
+      { _id: "legacy-approved", context_key: "legacy-approved-key", status: "approved" },
+      { _id: "legacy-pending", context_key: "legacy-pending-key", status: "pending" },
+    ]);
+    await migrate(db);
+    assert.equal((await db.collection("reviews").findOne({ _id: "legacy-approved" })).status, "published");
+    assert.equal((await db.collection("reviews").findOne({ _id: "legacy-pending" })).screening_state, "queued");
+    await db.collection("reviews").deleteMany({ _id: { $in: ["legacy-approved", "legacy-pending"] } });
   });
 
 });

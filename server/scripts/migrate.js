@@ -25,6 +25,11 @@ export async function migrate(db) {
 
   // Preserve visibility of legacy reviews; all new submissions explicitly use pending.
   await db.collection("reviews").updateMany({ status: { $exists: false } }, { $set: { status: "published", ai_cleared: false, screening_state: "legacy" } });
+  // Normalize the approval status used by the parallel GitHub implementation.
+  await db.collection("reviews").updateMany({ status: "approved" }, { $set: { status: "published" } });
+  await db.collection("reviews").updateMany({ status: "pending", screening_state: { $exists: false } }, { $set: {
+    screening_state: "queued", screening_revision: 1, screening_due: new Date(), ai_cleared: false, audit: [],
+  } });
   await db.collection("reviews").createIndex({ status: 1, screening_due: 1 });
   await db.collection("ai_summaries").createIndex({ state: 1, due: 1 });
   await db.collection("reports").createIndex({ reviewId: 1, reportedBy: 1 }, { unique: true });
@@ -54,6 +59,16 @@ export async function migrate(db) {
   await db.collection("reports").createIndex({ reviewId: 1 });
   await db.collection("reports").createIndex({ status: 1 });
   await db.collection("reports").createIndex({ created_at: -1 });
+
+  // Votes collection and indexes
+  if (!existing.has("votes")) await db.createCollection("votes");
+  await db.collection("votes").createIndex({ reviewId: 1, userId: 1 }, { unique: true });
+  await db.collection("votes").createIndex({ reviewId: 1 });
+
+  // Review status index for approval queue
+  await db.collection("reviews").createIndex({ status: 1 });
+  // User reviews lookup
+  await db.collection("reviews").createIndex({ user_id: 1 });
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

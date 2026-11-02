@@ -2,6 +2,8 @@ import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { randomUUID } from "node:crypto";
 import { requireAccount, requireAdmin } from "../middleware/auth.js";
+import { createIntelligenceService } from "../services/intelligence.js";
+import { createCache } from "../lib/redis.js";
 import { createReviewService } from "../services/reviews.js";
 import { HttpError, requireValue } from "../lib/errors.js";
 import { id, text } from "../lib/validation.js";
@@ -34,6 +36,41 @@ export function reviewRoutes(db, auth, options = {}) {
     }),
     async (req, res) =>
       res.status(201).json(await reviews.submit(req.user, req.body)),
+  );
+
+  // ── Approval Queue (Admin) ────────────────────────────────────────────────
+  router.get("/reviews/pending", requireAdmin, async (req, res) =>
+    res.json({ reviews: await reviews.pendingList() }),
+  );
+
+  router.patch("/reviews/:id/status", requireAdmin, async (req, res) => {
+    const reviewId = id(req.params.id);
+    const status = req.body.status;
+    requireValue(["approved", "rejected"].includes(status), 'Status must be "approved" or "rejected".');
+    // Preserve the existing approval API while enforcing the same screening,
+    // privacy, race checks and audit history as the AI moderation interface.
+    const intelligence = createIntelligenceService(db, options.config, options.jobs, createCache(null));
+    await intelligence.moderate(reviewId, req.user, {
+      action: status === "approved" ? "approve" : "reject", reason: req.body.reason || "",
+    });
+    res.json({ message: `Review ${status}.` });
+  });
+
+  // ── Voting ────────────────────────────────────────────────────────────────
+  router.post("/reviews/:id/vote", requireAccount, async (req, res) => {
+    const reviewId = id(req.params.id);
+    const value = req.body.value;
+    const result = await reviews.vote(req.user.id, reviewId, value);
+    res.json(result);
+  });
+
+  router.get("/votes", requireAccount, async (req, res) =>
+    res.json({ votes: await reviews.userVotes(req.user.id) }),
+  );
+
+  // ── My Reviews (Student Profile) ──────────────────────────────────────────
+  router.get("/my-reviews", requireAccount, async (req, res) =>
+    res.json({ reviews: await reviews.myReviews(req.user.id) }),
   );
 
   // ── Reports ───────────────────────────────────────────────────────────────

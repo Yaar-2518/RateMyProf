@@ -12,6 +12,7 @@ import Auth from "./pages/Auth.jsx";
 import Insights from "./pages/Insights.jsx";
 import Information from "./pages/Information.jsx";
 import Admin from "./pages/Admin.jsx";
+import MyProfile from "./pages/MyProfile.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
 // A small hash router: navigation works on a simple static host without
@@ -43,6 +44,7 @@ export default function App() {
       "reset-password": "Reset password",
       insights: "Campus insights",
       compare: "Compare professors",
+      "my-profile": "My Profile",
       about: "Our story",
       privacy: "Privacy",
       guidelines: "Community guidelines",
@@ -70,6 +72,7 @@ export default function App() {
       />
     );
   else if (path === "/write-review") page = <WriteReview params={params} />;
+  else if (path === "/my-profile") page = <MyProfile />;
   else if (
     ["/login", "/register", "/forgot-password", "/reset-password"].includes(
       path,
@@ -86,6 +89,7 @@ export default function App() {
       "/admin/professors",
       "/admin/courses",
       "/admin/departments",
+      "/admin/pending",
       "/admin/moderation",
     ].includes(path)
   )
@@ -99,12 +103,15 @@ export default function App() {
     );
   if (path === "/write-review")
     page = <AccessGate returnTo={location}>{page}</AccessGate>;
+  if (path === "/my-profile")
+    page = <AccessGate returnTo={location}>{page}</AccessGate>;
   const catalogRequired = [
     "professors",
     "courses",
     "admin",
     "write-review",
     "compare",
+    "my-profile",
   ].includes(segments[0]);
   if (catalogRequired) page = <CatalogGate>{page}</CatalogGate>;
   // Route keys reset page-local form/filter state when visiting another page.

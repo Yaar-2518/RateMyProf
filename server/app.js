@@ -124,7 +124,7 @@ export async function createApp(db, config, options = {}) {
   app.use("/api/auth", authRoutes(auth, config));
   app.use("/api", catalogRoutes(db));
   app.use("/api", intelligenceRoutes(db, config, jobs, createCache(redis)));
-  app.use("/api", reviewRoutes(db, auth, { ...options, jobs }));
+  app.use("/api", reviewRoutes(db, auth, { ...options, jobs, config }));
   app.use("/api", (req, res) =>
     res.status(404).json({
       error: { message: "API endpoint not found.", code: "NOT_FOUND" },

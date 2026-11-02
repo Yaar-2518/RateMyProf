@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Stars, Tag, Modal } from "./UI.jsx";
 import Icon from "./Icon.jsx";
 import { useData } from "../context/DataContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const REPORT_REASONS = [
   "Personal information",
@@ -12,16 +13,18 @@ const REPORT_REASONS = [
 ];
 
 export default function ReviewCard({ review }) {
-  const { courses, reports, reportReview } = useData();
-  const [helpful, setHelpful] = useState(false);
+  const { courses, reports, reportReview, userVotes, voteReview } = useData();
+  const { user } = useAuth();
   const [reporting, setReporting] = useState(false);
   const [reason, setReason] = useState(REPORT_REASONS[0]);
   const [details, setDetails] = useState("");
   const [busy, setBusy] = useState(false);
   const [reportError, setReportError] = useState("");
+  const [voting, setVoting] = useState(false);
 
   const reported = reports.some((r) => r.reviewId === review.id);
   const course = courses.find((c) => c.id === review.courseId);
+  const myVote = (userVotes && userVotes[review.id]) || 0;
 
   async function submitReport(e) {
     e.preventDefault();
@@ -37,6 +40,25 @@ export default function ReviewCard({ review }) {
       setBusy(false);
     }
   }
+
+  async function handleVote(value) {
+    if (!user || voting) return;
+    setVoting(true);
+    try {
+      await voteReview(review.id, value);
+    } catch {
+      // Vote failed silently
+    } finally {
+      setVoting(false);
+    }
+  }
+
+  const contextBadges = [];
+  if (review.grade && review.grade !== "Prefer not to say") contextBadges.push(`Grade: ${review.grade}`);
+  if (review.attendance) contextBadges.push(review.attendance);
+  if (review.textbook) contextBadges.push(`Textbook: ${review.textbook}`);
+  if (review.examDifficulty) contextBadges.push(`Exams: ${review.examDifficulty}`);
+  if (review.transparency) contextBadges.push(review.transparency);
 
   return (
     <article className="review-card">
@@ -65,6 +87,13 @@ export default function ReviewCard({ review }) {
           {course.code} · {course.name}
         </div>
       )}
+      {contextBadges.length > 0 && (
+        <div className="review-context">
+          {contextBadges.map((badge) => (
+            <span key={badge} className="context-badge">{badge}</span>
+          ))}
+        </div>
+      )}
       <p>
         {review.text || "This student shared ratings without a written review."}
       </p>
@@ -74,14 +103,28 @@ export default function ReviewCard({ review }) {
         ))}
       </div>
       <div className="review-bottom">
-        <button
-          className={`helpful-button ${helpful ? "active" : ""}`}
-          onClick={() => setHelpful(!helpful)}
-          aria-pressed={helpful}
-        >
-          <Icon name="thumb" size={15} /> Helpful{" "}
-          <span>{helpful ? 1 : 0}</span>
-        </button>
+        <div className="vote-buttons">
+          <button
+            className={`vote-button ${myVote === 1 ? "active-up" : ""}`}
+            onClick={() => handleVote(1)}
+            disabled={voting || !user}
+            aria-pressed={myVote === 1}
+            title={user ? "Helpful" : "Log in to vote"}
+          >
+            <Icon name="thumb" size={15} />
+            <span>{review.upvotes || 0}</span>
+          </button>
+          <button
+            className={`vote-button ${myVote === -1 ? "active-down" : ""}`}
+            onClick={() => handleVote(-1)}
+            disabled={voting || !user}
+            aria-pressed={myVote === -1}
+            title={user ? "Not helpful" : "Log in to vote"}
+          >
+            <Icon name="thumbDown" size={15} />
+            <span>{review.downvotes || 0}</span>
+          </button>
+        </div>
         <button
           className="report-button"
           disabled={reported}
