@@ -100,6 +100,37 @@ const paths = {
       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" stroke="none" />
     </>
   ),
+  star: (
+    <polygon points="12,2 15,9 22,9 17,14 18.5,21 12,17 5.5,21 7,14 2,9 9,9" />
+  ),
+  chart: (
+    <>
+      <path d="M3 3v18h18" />
+      <path d="M7 16l4-8 4 4 5-9" />
+    </>
+  ),
+  thumbDown: (
+    <>
+      <path d="M16 14V3H19a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3Zm0-1-5 8c-3 0-1-7-1-7H5a2 2 0 0 1-2-2l2-7a2 2 0 0 1 2-2h9" />
+    </>
+  ),
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-2a6 6 0 0 1 12 0v2" />
+    </>
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" />
+    </>
+  ),
+  filter: (
+    <>
+      <path d="M3 4h18l-7 8v6l-4 2V12L3 4Z" />
+    </>
+  ),
 };
 export default function Icon({ name, size = 20, className = "" }) {
   return (

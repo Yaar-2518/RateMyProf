@@ -36,6 +36,35 @@ export function reviewRoutes(db, auth, options = {}) {
       res.status(201).json(await reviews.submit(req.user, req.body)),
   );
 
+  // ── Approval Queue (Admin) ────────────────────────────────────────────────
+  router.get("/reviews/pending", requireAdmin, async (req, res) =>
+    res.json({ reviews: await reviews.pendingList() }),
+  );
+
+  router.patch("/reviews/:id/status", requireAdmin, async (req, res) => {
+    const reviewId = id(req.params.id);
+    const status = req.body.status;
+    await reviews.setStatus(reviewId, status);
+    res.json({ message: `Review ${status}.` });
+  });
+
+  // ── Voting ────────────────────────────────────────────────────────────────
+  router.post("/reviews/:id/vote", requireAccount, async (req, res) => {
+    const reviewId = id(req.params.id);
+    const value = req.body.value;
+    const result = await reviews.vote(req.user.id, reviewId, value);
+    res.json(result);
+  });
+
+  router.get("/votes", requireAccount, async (req, res) =>
+    res.json({ votes: await reviews.userVotes(req.user.id) }),
+  );
+
+  // ── My Reviews (Student Profile) ──────────────────────────────────────────
+  router.get("/my-reviews", requireAccount, async (req, res) =>
+    res.json({ reviews: await reviews.myReviews(req.user.id) }),
+  );
+
   // ── Reports ───────────────────────────────────────────────────────────────
   // POST /api/reviews/:id/report — any logged-in student can report a review
   router.post("/reviews/:id/report", requireAccount, async (req, res) => {

@@ -10,32 +10,71 @@ import {
 import Icon from "../components/Icon.jsx";
 import ProfessorCard from "../components/ProfessorCard.jsx";
 import { useData } from "../context/DataContext.jsx";
+import { reviewTags } from "../../shared/reviewOptions.js";
 
 export default function Directory({ type, params }) {
   const isCourse = type === "courses";
-  const { professors, courses, departments } = useData();
+  const { professors, courses, departments, reviews } = useData();
   const [query, setQuery] = useState(params.get("q") || "");
   const [department, setDepartment] = useState(
     params.get("department") || "All Departments",
   );
   const [view, setView] = useState("list");
   const [visibleCount, setVisibleCount] = useState(24);
+  const [sortBy, setSortBy] = useState("name");
+  const [minRating, setMinRating] = useState(0);
+  const [selectedTag, setSelectedTag] = useState("All Tags");
+  const [selectedCourse, setSelectedCourse] = useState("All Courses");
+
+  const hasActiveFilters =
+    query !== "" ||
+    department !== "All Departments" ||
+    minRating > 0 ||
+    selectedTag !== "All Tags" ||
+    selectedCourse !== "All Courses";
+
+  function clearAllFilters() {
+    setQuery("");
+    setDepartment("All Departments");
+    setMinRating(0);
+    setSelectedTag("All Tags");
+    setSelectedCourse("All Courses");
+    setVisibleCount(24);
+  }
+
   const results = (isCourse ? courses : professors)
     .filter((item) => {
       const courseNames = !isCourse
         ? courses
-            .filter((c) => item.courses.includes(c.id))
+            .filter((c) => item.courses && item.courses.includes(c.id))
             .map((c) => `${c.name} ${c.code}`)
             .join(" ")
         : "";
-      return (
-        (department === "All Departments" || item.department === department) &&
-        `${item.name} ${item.department} ${item.code || ""} ${courseNames}`
-          .toLowerCase()
-          .includes(query.toLowerCase().trim())
-      );
+      const matchesSearch = `${item.name} ${item.department} ${item.code || ""} ${courseNames}`
+        .toLowerCase()
+        .includes(query.toLowerCase().trim());
+      const matchesDept =
+        department === "All Departments" || item.department === department;
+      const matchesRating =
+        minRating === 0 || (item.rating !== null && item.rating >= minRating);
+      const matchesCourse =
+        isCourse ||
+        selectedCourse === "All Courses" ||
+        (item.courses && item.courses.includes(selectedCourse));
+      const matchesTag =
+        selectedTag === "All Tags" ||
+        reviews
+          .filter((r) =>
+            isCourse ? r.courseId === item.id : r.professorId === item.id,
+          )
+          .some((r) => r.tags && r.tags.includes(selectedTag));
+      return matchesSearch && matchesDept && matchesRating && matchesCourse && matchesTag;
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => {
+      if (sortBy === "rating") return (b.rating || 0) - (a.rating || 0);
+      if (sortBy === "reviews") return (b.reviewCount || 0) - (a.reviewCount || 0);
+      return a.name.localeCompare(b.name);
+    });
   return (
     <div className="container page">
       <PageHeading
@@ -62,8 +101,14 @@ export default function Directory({ type, params }) {
         />
         <label className="sort-label">
           Sort by
-          <select aria-label="Sort results" value="name">
+          <select
+            aria-label="Sort results"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
             <option value="name">Name (A–Z)</option>
+            <option value="rating">Highest rating</option>
+            <option value="reviews">Most reviews</option>
           </select>
         </label>
       </div>
@@ -79,6 +124,71 @@ export default function Directory({ type, params }) {
           setVisibleCount(24);
         }}
       />
+      <div className="advanced-filters">
+        <label className="sort-label">
+          Min rating
+          <select
+            aria-label="Minimum rating"
+            value={minRating}
+            onChange={(e) => {
+              setMinRating(Number(e.target.value));
+              setVisibleCount(24);
+            }}
+          >
+            <option value={0}>Any rating</option>
+            <option value={3}>3.0+ stars</option>
+            <option value={3.5}>3.5+ stars</option>
+            <option value={4}>4.0+ stars</option>
+            <option value={4.5}>4.5+ stars</option>
+          </select>
+        </label>
+        <label className="sort-label">
+          Tag filter
+          <select
+            aria-label="Filter by tag"
+            value={selectedTag}
+            onChange={(e) => {
+              setSelectedTag(e.target.value);
+              setVisibleCount(24);
+            }}
+          >
+            <option value="All Tags">All Tags</option>
+            {reviewTags.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </label>
+        {!isCourse && (
+          <label className="sort-label">
+            Course taught
+            <select
+              aria-label="Filter by course taught"
+              value={selectedCourse}
+              onChange={(e) => {
+                setSelectedCourse(e.target.value);
+                setVisibleCount(24);
+              }}
+            >
+              <option value="All Courses">All Courses</option>
+              {[...courses]
+                .sort((a, b) => a.code.localeCompare(b.code))
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} · {c.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
+        {hasActiveFilters && (
+          <button
+            className="button secondary compact"
+            onClick={clearAllFilters}
+          >
+            Clear all filters
+          </button>
+        )}
+      </div>
       <div className="results-heading">
         <span>
           <strong>{results.length}</strong>{" "}
@@ -124,12 +234,9 @@ export default function Directory({ type, params }) {
           {(isCourse || professors.length > 0) && (
             <button
               className="button secondary"
-              onClick={() => {
-                setQuery("");
-                setDepartment("All Departments");
-              }}
+              onClick={clearAllFilters}
             >
-              Reset filters
+              Reset all filters
             </button>
           )}
         </EmptyState>

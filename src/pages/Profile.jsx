@@ -20,9 +20,11 @@ function ReviewList({ reviews }) {
         description="There are no reviews for this profile yet."
       />
     );
-  const sorted = [...reviews].sort((a, b) =>
-    sort === "highest" ? b.rating - a.rating : b.date.localeCompare(a.date),
-  );
+  const sorted = [...reviews].sort((a, b) => {
+    if (sort === "highest") return b.rating - a.rating;
+    if (sort === "helpful") return (b.helpfulness || 0) - (a.helpfulness || 0);
+    return b.date.localeCompare(a.date);
+  });
   return (
     <>
       <label className="sort-label">
@@ -34,6 +36,7 @@ function ReviewList({ reviews }) {
         >
           <option value="recent">Most recent</option>
           <option value="highest">Highest rating</option>
+          <option value="helpful">Most helpful</option>
         </select>
       </label>
       <div className="review-list">

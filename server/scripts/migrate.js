@@ -47,6 +47,16 @@ export async function migrate(db) {
   await db.collection("reports").createIndex({ reviewId: 1 });
   await db.collection("reports").createIndex({ status: 1 });
   await db.collection("reports").createIndex({ created_at: -1 });
+
+  // Votes collection and indexes
+  if (!existing.has("votes")) await db.createCollection("votes");
+  await db.collection("votes").createIndex({ reviewId: 1, userId: 1 }, { unique: true });
+  await db.collection("votes").createIndex({ reviewId: 1 });
+
+  // Review status index for approval queue
+  await db.collection("reviews").createIndex({ status: 1 });
+  // User reviews lookup
+  await db.collection("reviews").createIndex({ user_id: 1 });
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

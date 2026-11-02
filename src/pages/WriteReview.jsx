@@ -7,7 +7,15 @@ import {
   EmptyState,
 } from "../components/UI.jsx";
 import Icon from "../components/Icon.jsx";
-import { ratingLabels, reviewTags } from "../../shared/reviewOptions.js";
+import {
+  ratingLabels,
+  reviewTags,
+  gradeOptions,
+  attendanceOptions,
+  textbookOptions,
+  examDifficultyOptions,
+  transparencyOptions,
+} from "../../shared/reviewOptions.js";
 import { request } from "../services/api.js";
 import { useData } from "../context/DataContext.jsx";
 
@@ -59,6 +67,11 @@ export default function WriteReview({ params }) {
   const [text, setText] = useState("");
   const [tags, setTags] = useState([]);
   const [confirmed, setConfirmed] = useState(false);
+  const [grade, setGrade] = useState("");
+  const [attendance, setAttendance] = useState("");
+  const [textbook, setTextbook] = useState("");
+  const [examDifficulty, setExamDifficulty] = useState("");
+  const [transparency, setTransparency] = useState("");
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -108,6 +121,11 @@ export default function WriteReview({ params }) {
           text,
           tags,
           confirmed,
+          grade: grade || undefined,
+          attendance: attendance || undefined,
+          textbook: textbook || undefined,
+          examDifficulty: examDifficulty || undefined,
+          transparency: transparency || undefined,
         },
       });
       setSubmitted(true);
@@ -130,18 +148,17 @@ export default function WriteReview({ params }) {
           <div className="eyebrow">A PERSPECTIVE WORTH SHARING</div>
           <h1>Thanks for passing it on.</h1>
           <p>
-            Your anonymous review has been saved. Your account details are not
-            displayed with your review.
+            Your anonymous review has been submitted and is pending admin approval.
+            Once approved, it will be visible to everyone on campus.
           </p>
-          <Link
-            className="button primary"
-            to={`/professors/${professorId}/reviews`}
-          >
-            See your review <Icon name="arrow" size={18} />
-          </Link>
-          <Link className="text-link" to="/professors">
-            Back to professors
-          </Link>
+          <div className="form-actions" style={{ justifyContent: "center", gap: "1rem" }}>
+            <Link className="button primary" to="/my-profile">
+              Track in My Profile <Icon name="arrow" size={18} />
+            </Link>
+            <Link className="button secondary" to="/professors">
+              Back to professors
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -262,7 +279,83 @@ export default function WriteReview({ params }) {
           </div>
           <div className="form-section">
             <h3>
-              <span className="form-number">03</span>Put it in your own words
+              <span className="form-number">03</span>Course context
+              <span className="muted small"> (optional)</span>
+            </h3>
+            <p className="muted small">
+              Help future students know what to expect. All fields are optional.
+            </p>
+            <div className="form-grid context-grid">
+              <label>
+                Grade received
+                <select
+                  aria-label="Grade received"
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                >
+                  <option value="">Select grade</option>
+                  {gradeOptions.map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Attendance policy
+                <select
+                  aria-label="Attendance policy"
+                  value={attendance}
+                  onChange={(e) => setAttendance(e.target.value)}
+                >
+                  <option value="">Select attendance</option>
+                  {attendanceOptions.map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Textbook required?
+                <select
+                  aria-label="Textbook required"
+                  value={textbook}
+                  onChange={(e) => setTextbook(e.target.value)}
+                >
+                  <option value="">Select requirement</option>
+                  {textbookOptions.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Exam difficulty
+                <select
+                  aria-label="Exam difficulty"
+                  value={examDifficulty}
+                  onChange={(e) => setExamDifficulty(e.target.value)}
+                >
+                  <option value="">Select difficulty</option>
+                  {examDifficultyOptions.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Professor transparency
+                <select
+                  aria-label="Professor transparency"
+                  value={transparency}
+                  onChange={(e) => setTransparency(e.target.value)}
+                >
+                  <option value="">Select transparency</option>
+                  {transparencyOptions.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+          <div className="form-section">
+            <h3>
+              <span className="form-number">04</span>Put it in your own words
             </h3>
             <label>
               Your anonymous review <span className="muted">(optional)</span>

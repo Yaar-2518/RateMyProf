@@ -19,7 +19,8 @@ export function DataProvider({ children }) {
     [courses, setCourses] = useState([]),
     [departmentRecords, setDepartmentRecords] = useState([]);
   const [reviews, setReviews] = useState([]),
-    [reports, setReports] = useState([]);
+    [reports, setReports] = useState([]),
+    [userVotes, setUserVotes] = useState({});
   const [loading, setLoading] = useState(true),
     [error, setError] = useState("");
 
@@ -35,6 +36,12 @@ export function DataProvider({ children }) {
       setDepartmentRecords(data.departments);
       setError("");
       setReviews(reviewData.reviews);
+      try {
+        const voteData = await request("/votes");
+        setUserVotes(voteData.votes);
+      } catch {
+        // Not logged in — votes empty
+      }
     } catch (failure) {
       setError(failure.message);
       throw failure;
@@ -121,6 +128,45 @@ export function DataProvider({ children }) {
     );
   }
 
+  // Vote on a review (1 = up, -1 = down)
+  async function voteReview(reviewId, value) {
+    const result = await request(`/reviews/${reviewId}/vote`, {
+      method: "POST",
+      body: { value },
+    });
+    try {
+      const [reviewData, voteData] = await Promise.all([
+        request("/reviews"),
+        request("/votes"),
+      ]);
+      setReviews(reviewData.reviews);
+      setUserVotes(voteData.votes);
+    } catch {
+      // Refresh failed silently
+    }
+    return result;
+  }
+
+  // Admin: fetch pending reviews
+  async function fetchPendingReviews() {
+    const data = await request("/reviews/pending");
+    return data.reviews;
+  }
+
+  // Admin: approve or reject a review
+  async function setReviewStatus(reviewId, status) {
+    await request(`/reviews/${reviewId}/status`, {
+      method: "PATCH",
+      body: { status },
+    });
+  }
+
+  // Student: fetch my own reviews
+  async function fetchMyReviews() {
+    const data = await request("/my-reviews");
+    return data.reviews;
+  }
+
   return (
     <DataContext.Provider
       value={{
@@ -131,6 +177,7 @@ export function DataProvider({ children }) {
         reviews,
         reports,
         setReports,
+        userVotes,
         loading,
         error,
         refreshCatalog,
@@ -140,6 +187,10 @@ export function DataProvider({ children }) {
         reportReview,
         resolveReport,
         deleteReview,
+        voteReview,
+        fetchPendingReviews,
+        setReviewStatus,
+        fetchMyReviews,
       }}
     >
       {children}

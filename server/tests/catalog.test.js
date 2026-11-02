@@ -93,12 +93,28 @@ test("review validation preserves plain text and rejects malformed values", () =
   };
   assert.equal(validateReview(body).text, "Useful examples.");
   assert.equal(validateReview({ ...body, text: "" }).text, "");
+  assert.equal(
+    validateReview({
+      ...body,
+      grade: "A",
+      attendance: "Mandatory",
+      textbook: "Yes",
+      examDifficulty: "Difficult",
+      transparency: "Very Transparent",
+    }).grade,
+    "A",
+  );
   for (const invalid of [
     { ratings: [1, 2, 3, 4, 5, 0] },
     { ratings: [1, 2, 3, 4, 5, 1.5] },
     { tags: ["Helpful", "Helpful"] },
     { confirmed: "true" },
     { text: "bad\u0000text" },
+    { grade: "InvalidGrade" },
+    { attendance: "InvalidAttendance" },
+    { textbook: "InvalidTextbook" },
+    { examDifficulty: "InvalidExam" },
+    { transparency: "InvalidTransparency" },
   ])
     assert.throws(() => validateReview({ ...body, ...invalid }));
 });

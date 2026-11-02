@@ -78,6 +78,13 @@ export default function Layout({ route, children }) {
                   {user.role === "admin" ? "Admin" : user.email}
                 </span>
                 <Link
+                  className="my-profile-nav-link"
+                  to="/my-profile"
+                  title="View your profile and reviews"
+                >
+                  My Profile
+                </Link>
+                <Link
                   className="reset-password-nav-link"
                   to={`/forgot-password?email=${encodeURIComponent(user.email)}`}
                   title="Reset or change your account password"
@@ -153,6 +160,7 @@ export default function Layout({ route, children }) {
               <h4>Account</h4>
               {user ? (
                 <>
+                  <Link to="/my-profile">My Profile</Link>
                   <Link to={`/forgot-password?email=${encodeURIComponent(user.email)}`}>
                     Reset Password
                   </Link>

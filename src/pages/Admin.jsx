@@ -6,6 +6,8 @@ import {
   SearchInput,
   Modal,
   EmptyState,
+  Stars,
+  Tag,
 } from "../components/UI.jsx";
 import Icon from "../components/Icon.jsx";
 import DepartmentAdmin from "./DepartmentAdmin.jsx";
@@ -16,6 +18,7 @@ const links = [
   ["/admin/professors", "cap", "Professors"],
   ["/admin/courses", "book", "Courses"],
   ["/admin/departments", "grid", "Departments"],
+  ["/admin/pending", "clock", "Pending Reviews"],
   ["/admin/moderation", "shield", "Moderation"],
 ];
 export default function Admin({ section = "overview" }) {
@@ -30,6 +33,9 @@ export default function Admin({ section = "overview" }) {
     refreshReports,
     resolveReport,
     deleteReview,
+    fetchPendingReviews,
+    setReviewStatus,
+    refreshCatalog,
   } = useData();
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState(null);
@@ -37,9 +43,18 @@ export default function Admin({ section = "overview" }) {
   const [feedback, setFeedback] = useState("");
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingReviews, setPendingReviews] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+
   // Load reports from the API when the admin opens the moderation section
   useEffect(() => {
     if (section === "moderation") refreshReports();
+  }, [section]);
+
+  useEffect(() => {
+    fetchPendingReviews()
+      .then((data) => setPendingReviews(data || []))
+      .catch(() => {});
   }, [section]);
   const isCourse = section === "courses";
   const catalog = isCourse ? courses : professors;
@@ -124,6 +139,20 @@ export default function Admin({ section = "overview" }) {
       setBusy(false);
     }
   }
+  async function handleReviewStatus(reviewId, status) {
+    setFeedback("");
+    setBusy(true);
+    try {
+      await setReviewStatus(reviewId, status);
+      setPendingReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      await refreshCatalog();
+      setFeedback(`Review ${status}.`);
+    } catch (err) {
+      setFeedback(`Error: ${err.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <div className="container page">
       <PageHeading
@@ -157,6 +186,11 @@ export default function Admin({ section = "overview" }) {
                   {reports.filter((r) => r.status === "Pending").length}
                 </span>
               )}
+              {title === "Pending Reviews" && pendingReviews.length > 0 && (
+                <span className="queue-count">
+                  {pendingReviews.length}
+                </span>
+              )}
             </Link>
           ))}
           <div className="admin-sidebar-note">
@@ -186,7 +220,12 @@ export default function Admin({ section = "overview" }) {
                 {[
                   ["cap", professors.length, "Professors"],
                   ["book", courses.length, "Courses"],
-                  ["users", reviews.length, "Reviews"],
+                  ["users", reviews.length, "Approved reviews"],
+                  [
+                    "clock",
+                    pendingReviews.length,
+                    "Pending reviews",
+                  ],
                   [
                     "flag",
                     reports.filter((r) => r.status === "Pending").length,
@@ -320,6 +359,93 @@ export default function Admin({ section = "overview" }) {
                 </table>
                 {!filtered.length && <EmptyState />}
               </div>
+            </>
+          )}
+          {section === "pending" && (
+            <>
+              <div className="section-heading">
+                <div>
+                  <h2>Review Approval Queue</h2>
+                  <p>
+                    New reviews submitted by students appear here for administrative verification.
+                  </p>
+                </div>
+                <span className="tag warm">
+                  {pendingReviews.length} pending
+                </span>
+              </div>
+              {pendingLoading ? (
+                <p className="muted">Loading pending reviews…</p>
+              ) : !pendingReviews.length ? (
+                <div className="panel">
+                  <EmptyState
+                    title="All caught up!"
+                    description="There are no pending reviews waiting for approval. New student submissions will appear here."
+                  />
+                </div>
+              ) : (
+                <div className="moderation-list">
+                  {pendingReviews.map((review) => {
+                    const contextBadges = [];
+                    if (review.grade && review.grade !== "Prefer not to say") contextBadges.push(`Grade: ${review.grade}`);
+                    if (review.attendance) contextBadges.push(review.attendance);
+                    if (review.textbook) contextBadges.push(`Textbook: ${review.textbook}`);
+                    if (review.examDifficulty) contextBadges.push(`Exams: ${review.examDifficulty}`);
+                    if (review.transparency) contextBadges.push(review.transparency);
+
+                    return (
+                      <section className="panel" key={review.id}>
+                        <div className="section-heading">
+                          <h3>{review.professorName}</h3>
+                          <span className="tag warm">Pending approval</span>
+                        </div>
+                        <p className="muted small">
+                          {review.department} · {review.semester} · {review.date}
+                        </p>
+                        <div className="review-score" style={{ margin: "0.5rem 0" }}>
+                          <Stars value={review.rating} />
+                          <strong>{review.rating.toFixed(1)}</strong>
+                        </div>
+                        {contextBadges.length > 0 && (
+                          <div className="review-context" style={{ margin: "0.5rem 0" }}>
+                            {contextBadges.map((badge) => (
+                              <span key={badge} className="context-badge">{badge}</span>
+                            ))}
+                          </div>
+                        )}
+                        <blockquote>
+                          {review.text || "Ratings only — no written review text provided."}
+                        </blockquote>
+                        {review.tags && review.tags.length > 0 && (
+                          <div className="tags" style={{ margin: "0.75rem 0" }}>
+                            {review.tags.map((t) => (
+                              <Tag key={t}>{t}</Tag>
+                            ))}
+                          </div>
+                        )}
+                        <div className="form-actions" style={{ marginTop: "1rem" }}>
+                          <button
+                            className="button primary"
+                            disabled={busy}
+                            onClick={() => handleReviewStatus(review.id, "approved")}
+                          >
+                            <Icon name="check" size={16} />
+                            Approve review
+                          </button>
+                          <button
+                            className="button danger-button"
+                            disabled={busy}
+                            onClick={() => handleReviewStatus(review.id, "rejected")}
+                          >
+                            <Icon name="close" size={16} />
+                            Reject review
+                          </button>
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
           {section === "departments" && <DepartmentAdmin />}
